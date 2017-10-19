@@ -4,7 +4,7 @@ import pandas as pd
 import glob
 import re
 os.getcwd() #dir
-
+#preprocess
 path =r'C:\Users\huang\Desktop\train'
 allFiles1 = glob.glob(path + "/9*.csv")
 allFiles2= glob.glob(path + "/1*.csv")
@@ -32,3 +32,18 @@ def air_choose(air):
     
 a=air_choose("PM2.5")
 a
+# to time series
+b=pd.DataFrame.copy(a)
+b['前三天']=np.zeros(len(a))
+b['前兩天']=np.zeros(len(a))
+b['前一天']=np.zeros(len(a))
+b['今天']=np.zeros(len(a))
+for i in range(3,len(a)):
+    b.iloc[i,4]=b.iloc[i-3,3]
+    b.iloc[i,5]=b.iloc[i-2,3]
+    b.iloc[i,6]=b.iloc[i-1,3]
+    b.iloc[i,7]=b.iloc[i,3]
+    
+b=b.drop('平均',axis=1)
+b=b.drop(b.index[0:3])
+b
