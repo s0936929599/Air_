@@ -103,3 +103,8 @@ pyplot.subplot(212)
 pyplot.plot(end1[3000:,-1])
 
 pyplot.show()
+#mape
+sum1=[]
+for i in range(0,aaa.shape[0]):
+    sum1.append(np.abs((bbb[i]-aaa[i])/bbb[i])*100)
+np.array(sum1).mean()
