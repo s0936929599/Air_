@@ -46,6 +46,7 @@ def air_choose(air):
 a=air_choose("PM2.5")
 a
 # to time series
+a=a[a.iloc[:,3]>0]#find out value >0
 b=pd.DataFrame.copy(a)
 b['前三天']=np.zeros(len(a))
 b['前兩天']=np.zeros(len(a))
@@ -62,12 +63,14 @@ b=b.drop(b.index[0:3])
 b
 
 #model lstm
-end=np.around(b.values[:,3:].astype("float32"))
-end=end.astype('int').copy()
-#scaler = MinMaxScaler(feature_range=(0, 1))
-#end = scaler.fit_transform(end)
-end=normalize(end)
-end
+end1=np.around(b.values[:,3:].astype("float32"))
+end=end1.copy()
+def normalize_data(data,col): # normalize
+    return((data[:,col]-data[:,col].min())/(data[:,col].max()-data[:,col].min()))
+def denormalize_data(nor_data,raw_data,col):
+    return((nor_data[:]*(raw_data[:,col].max()-raw_data[:,col].min()))+raw_data[:,col].min())
+for i in range(0,4):
+    end[:,i]=normalize_data(end,i)
 train_X, train_y = end[:3000, :-1], end[:3000,-1]
 test_X, test_y = end[3000:, :-1], end[3000:,-1]
 train_X,test_X
@@ -76,13 +79,27 @@ train_X = train_X.reshape((train_X.shape[0],1,train_X.shape[1]))
 test_X = test_X.reshape((test_X.shape[0],1,test_X.shape[1]))
 print(train_X.shape, train_y.shape, test_X.shape, test_y.shape)
 model = Sequential()
-model.add(LSTM(10, input_shape=(train_X.shape[1], train_X.shape[2])))
+model.add(LSTM(100, input_shape=(train_X.shape[1], train_X.shape[2])))
 model.add(Dense(1))
 model.compile(loss='mean_squared_error', optimizer='adam')
 
 
-history=model.fit(train_X, train_y, epochs=50, batch_size=30,validation_data=(test_X, test_y),verbose=2, shuffle=False)
+history=model.fit(train_X, train_y, epochs=500, batch_size=30,validation_data=(test_X, test_y),verbose=2, shuffle=False)
 pyplot.plot(history.history['loss'], label='train')
 pyplot.plot(history.history['val_loss'], label='test')
 pyplot.legend()
+pyplot.show()
+
+
+#evaluate
+qq=model.predict(test_X)#predict
+aaa=denormalize_data(qq,end1,3)#denormaized
+end1[3000:,-1]# real data
+
+pyplot.subplot(211)
+pyplot.plot(aaa)
+
+pyplot.subplot(212)
+pyplot.plot(end1[3000:,-1])
+
 pyplot.show()
