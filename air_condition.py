@@ -63,7 +63,7 @@ b=b.drop(b.index[0:3])
 b
 
 #model lstm
-end1=np.around(b.values[:,3:].astype("float32"))
+end1=b.values[:,3:].astype("float32")
 end=end1.copy()
 def normalize_data(data,col): # normalize
     return((data[:,col]-data[:,col].min())/(data[:,col].max()-data[:,col].min()))
