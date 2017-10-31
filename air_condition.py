@@ -15,10 +15,15 @@ from sklearn.metrics import mean_squared_error
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
+from keras.layers import Activation
 from sklearn.preprocessing import normalize
-os.getcwd() #dir
+from keras.models import load_model # keras.models.load_model(filepath)
+from keras import optimizers
+from keras.utils import plot_model
+import pydot
+
 #preprocess
-path =r'C:\Users\huang\Desktop\train'
+path =r'C:\Users\huang\Desktop\train1'
 allFiles1 = glob.glob(path + "/9*.csv")
 allFiles2= glob.glob(path + "/1*.csv")
 allFiles=allFiles1+allFiles2 #sort by 民國 9~10
@@ -40,12 +45,12 @@ def air_choose(air):
         mean.append(data.iloc[i,3:27].str.replace('.+x{1}','nan').str.replace('.+#{1}','nan').str.replace('.+\*{1}','nan').astype(float).mean())
     data.iloc[:,3]=mean
     data=data.iloc[:,0:4]
-    data.columns=['日期','測站','測項','平均']
+    data.columns=['日期','測站','測項','平均溫度']
     return(data)
     
-a=air_choose("PM2.5")
+a=air_choose("AMB_TEMP")
 a
-# to time series
+#to time series
 a=a[a.iloc[:,3]>0]#find out value >0
 b=pd.DataFrame.copy(a)
 b['前三天']=np.zeros(len(a))
@@ -58,11 +63,14 @@ for i in range(3,len(a)):
     b.iloc[i,6]=b.iloc[i-1,3]
     b.iloc[i,7]=b.iloc[i,3]
     
-b=b.drop('平均',axis=1)
+b=b.drop('平均溫度',axis=1)
 b=b.drop(b.index[0:3])
 b
+#for i in range(0,4):
+#    b.iloc[:,i+3]=normalize_data(end,i)
 
-#model lstm
+
+#lstm
 end1=b.values[:,3:].astype("float32")
 end=end1.copy()
 def normalize_data(data,col): # normalize
@@ -71,37 +79,73 @@ def denormalize_data(nor_data,raw_data,col):
     return((nor_data[:]*(raw_data[:,col].max()-raw_data[:,col].min()))+raw_data[:,col].min())
 for i in range(0,4):
     end[:,i]=normalize_data(end,i)
-train_X, train_y = end[:3000, :-1], end[:3000,-1]
-test_X, test_y = end[3000:, :-1], end[3000:,-1]
+#train_X, train_y = end[:3601, :-1], end[:3601,-1] nali 2016
+#test_X, test_y = end[3601:, :-1], end[3601:,-1]
+train_X, train_y = end[:3998, :-1], end[:3998,-1] #ctun 2016
+test_X, test_y = end[3998:, :-1], end[3998:,-1]
 train_X,test_X
 # reshape input to be 3D [samples, timesteps, features]
 train_X = train_X.reshape((train_X.shape[0],1,train_X.shape[1]))
 test_X = test_X.reshape((test_X.shape[0],1,test_X.shape[1]))
+#train_X = train_X.reshape((train_X.shape[0],train_X.shape[1],1))
+#test_X = test_X.reshape((test_X.shape[0],test_X.shape[1],1))
 print(train_X.shape, train_y.shape, test_X.shape, test_y.shape)
 model = Sequential()
-model.add(LSTM(100, input_shape=(train_X.shape[1], train_X.shape[2])))
+model.add(LSTM(50, input_shape=(1,3)))
+model.add(Activation('relu'))
+model.add(Dense(50))
+model.add(Activation('relu'))
 model.add(Dense(1))
-model.compile(loss='mean_squared_error', optimizer='adam')
+ad=optimizers.Adam(lr=0.0001)
+model.compile(loss='mean_squared_error', optimizer=ad)
 
 
-history=model.fit(train_X, train_y, epochs=500, batch_size=30,validation_data=(test_X, test_y),verbose=2, shuffle=False)
+
+history=model.fit(train_X, train_y, epochs=200, batch_size=32,validation_data=(test_X, test_y),verbose=2, shuffle=False)
 pyplot.plot(history.history['loss'], label='train')
 pyplot.plot(history.history['val_loss'], label='test')
 pyplot.legend()
 pyplot.show()
 
+#fully-collected
+end1=b.values[:,3:].astype("float32")
+end=end1.copy()
+def normalize_data(data,col): # normalize
+    return((data[:,col]-data[:,col].min())/(data[:,col].max()-data[:,col].min()))
+def denormalize_data(nor_data,raw_data,col):
+    return((nor_data[:]*(raw_data[:,col].max()-raw_data[:,col].min()))+raw_data[:,col].min())
+for i in range(0,4):
+    end[:,i]=normalize_data(end,i)
+#train_X, train_y = end[:3601, :-1], end[:3601,-1] nali 2016
+#test_X, test_y = end[3601:, :-1], end[3601:,-1]
+train_X, train_y = end[:3998, :-1], end[:3998,-1] #ctun 2016
+test_X, test_y = end[3998:, :-1], end[3998:,-1]
+train_X,test_X
+model = Sequential()
+model.add(Dense(50, input_dim=3))
+model.add(Activation('relu'))
+model.add(Dense(50))
+model.add(Activation('relu'))
+model.add(Dense(1))
+ad=optimizers.Adam(lr=0.0001)
+model.compile(loss='mean_squared_error', optimizer=ad)
+#shuffle random data
+history=model.fit(train_X, train_y, epochs=200, batch_size=32,validation_data=(test_X, test_y),verbose=2, shuffle=False)
+pyplot.plot(history.history['loss'], label='train')
+pyplot.plot(history.history['val_loss'], label='test')
+pyplot.legend()
+pyplot.show()
 
-#evaluate
+model.summary()
+#plot together
 qq=model.predict(test_X)#predict
 aaa=denormalize_data(qq,end1,3)#denormaized
-end1[3000:,-1]# real data
-
-pyplot.subplot(211)
-pyplot.plot(aaa)
-
-pyplot.subplot(212)
-pyplot.plot(end1[3000:,-1])
-
+bbb=end1[3998:,-1]# real data
+pyplot.plot(bbb, label='Real',color='black')
+pyplot.plot(aaa, label='MLP',color='red')
+pyplot.ylabel('temperature')
+pyplot.xlabel('Day')
+pyplot.legend()
 pyplot.show()
 #mape
 sum1=[]
